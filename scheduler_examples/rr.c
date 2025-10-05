@@ -6,7 +6,7 @@
 #include "msg.h"
 #include <unistd.h>
 
-#define RR_TIME_SLICE_MS 100
+#define RR_TIME_SLICE_MS 500
 
 /**
  * @brief First-In-First-Out (FIFO) scheduling algorithm.
@@ -24,6 +24,9 @@
 void rr_scheduler(uint32_t current_time_ms, queue_t *rq, pcb_t **cpu_task) {
     if (*cpu_task) {
         (*cpu_task)->ellapsed_time_ms += TICKS_MS;      // Add to the running time of the application/task
+
+        uint32_t slice_elapsed = current_time_ms - (*cpu_task)->slice_start_ms;
+
         if ((*cpu_task)->ellapsed_time_ms >= (*cpu_task)->time_ms) {
             // Task finished
             // Send msg to application
@@ -38,7 +41,7 @@ void rr_scheduler(uint32_t current_time_ms, queue_t *rq, pcb_t **cpu_task) {
             // Application finished and can be removed (this is FIFO after all)
             free((*cpu_task));
             (*cpu_task) = NULL;
-        } else if ((*cpu_task)->slice_start_ms >= RR_TIME_SLICE_MS) {
+        } else if (slice_elapsed >= RR_TIME_SLICE_MS) {
                 // Fim do time slice: preempção
                 (*cpu_task)->slice_start_ms = 0;
                 enqueue_pcb(rq, *cpu_task);  // retorna à fila de prontos
@@ -48,6 +51,8 @@ void rr_scheduler(uint32_t current_time_ms, queue_t *rq, pcb_t **cpu_task) {
 
     if (*cpu_task == NULL) {
         *cpu_task = dequeue_pcb(rq);
-        if (*cpu_task) (*cpu_task)->slice_start_ms = 0;  // reset slice do novo processo
+        if (*cpu_task) {
+            (*cpu_task)->slice_start_ms = 0; // reset slice do novo processo
+        }
     }
 }
